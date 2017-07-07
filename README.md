@@ -1,2 +1,2 @@
 # Acorn_Final
-Acorn Final Project Archive
+CTO 팀 최종 프로젝트 가동
