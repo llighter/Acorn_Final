@@ -5,7 +5,7 @@ Created on 2017. 8. 9.
 '''
 """
 -
-http://market.cetizen.com/market.php?q=market&auc_sale=1&escrow_motion=3&sc=1&qs=&auc_wireless=&auc_uid=&stype=&akeyword=&just_one=&just_one_name=&just_one_pcat=&view_type=&m%5B1%5D=1&auc_price1=&auc_price2=&keyword_p=&pno=&pw=&p=1
+http://market.cetizen.com/market.php?q=market&auc_sale=1&escrow_motion=3&sc=1&p=
 
 @@@@@ 참고
 @ 웹 크롤링
@@ -31,7 +31,7 @@ Work Done
 
 
 
- ## TODO:: 
+ ## programming TODO:: 
 -------- Aug 22, 2017
 00. 가독성증가용 :: 함수/ 클래스화. 제발 ㅜㅜ
 2. last4 options>> 설명나누기.
@@ -41,6 +41,12 @@ Work Done
 6. soldLists로 df에 state_name,state_code 추가..
 
 ??. soldTitles의 경우, 한 페이지에 같은 제목 복수개중 첫번째 값만 가져온다. 모두 찾기 방법 모색.
+
+
+ ## Project TODO:: 
+0. 각기종의 첫 판매시기, 판매시기 전 가장 최근10개 기종 가격변동 확인.
+1. 웹페이지 연동.
+2. 
 
 
 """
@@ -56,35 +62,36 @@ from datetime import datetime
 def spider(startPage, endPage):
     page = startPage
 
-# board table.
-    titles = []         # list_title
-    soldTitles = []     # temp. soldLists추출용.
-    soldLists = []      # list_state_code :: 판매중, 팔림.
-    prices = []         # list_phone_price
-    aucNos = []         # list_id        #http://market.cetizen.com/market.php?q=view&auc_no=aucNos    ## 상세게시글
-    sellTimes = []      # list_uploadTime
-    deliverFees = []    # 배달비용 0~
-    sellerNames = []    # phone_seller
-    
-    options = []        # phone_options ex) 만료선택확정중
-                        # 보증: , 만료:
-                        # 선택: 선택약정(20% 요금할인 약정가입) 적용가능 , 불가: 선택약정할인 적용불가
-                        # 확정: 확정기변, 유심: 유심기변
-                        # 미사용, 상(무흠집), 중(생활흠집), 하(번인/잔상/파손)
-    pInfoSet = []       # temp. aucNos.phoneId.phoneName 모음.
-    
-# phone table
-    phoneId = []        # phone_id      # http://market.cetizen.com/market.php?q=info&pno=phoneId    ## 해당 폰 정보
-    models = []         # phone_model    
-    phoneName = []      # phone_name    
+
     
     while page< endPage+1 :
+        # board table.
+        titles = []         # list_title
+        soldTitles = []     # temp. soldLists추출용.
+        soldLists = []      # list_state_code :: 판매중, 팔림.
+        prices = []         # list_phone_price
+        aucNos = []         # list_id        #http://market.cetizen.com/market.php?q=view&auc_no=aucNos    ## 상세게시글
+        sellTimes = []      # list_uploadTime
+        deliverFees = []    # 배달비용 0~
+        sellerNames = []    # phone_seller
+        
+        options = []        # phone_options ex) 만료선택확정중
+                            # 보증: , 만료:
+                            # 선택: 선택약정(20% 요금할인 약정가입) 적용가능 , 불가: 선택약정할인 적용불가
+                            # 확정: 확정기변, 유심: 유심기변
+                            # 미사용, 상(무흠집), 중(생활흠집), 하(번인/잔상/파손)
+        pInfoSet = []       # temp. aucNos.phoneId.phoneName 모음.
+        
+        # phone table
+        phoneId = []        # phone_id      # http://market.cetizen.com/market.php?q=info&pno=phoneId    ## 해당 폰 정보
+        models = []         # phone_model    
+        phoneName = []      # phone_name    
         print('#' * 30 )
         print('#' * 30 ,"   page ::", page)
         print('#' * 30 )
         
         # Web Scrap
-        url = 'http://market.cetizen.com/market.php?q=market&auc_sale=1&escrow_motion=3&sc=1&qs=&auc_wireless=&auc_uid=&stype=&akeyword=&just_one=&just_one_name=&just_one_pcat=&view_type=&m%5B1%5D=1&auc_price1=&auc_price2=&keyword_p=&pno=&pw=&p='+ str(page)
+        url = 'http://market.cetizen.com/market.php?q=market&auc_sale=1&escrow_motion=3&sc=1&p='+ str(page)
         source_code = requests.get(url)
         plain_text = source_code.text
         soup = BS(plain_text, 'lxml')  ## lxml은 html.parser보다 월등히빠름.
@@ -139,46 +146,45 @@ def spider(startPage, endPage):
         
         
         # Checking num of elements in list is 20.    
-        lenList = [models, titles, prices, deliverFees, sellerNames, sellTimes ]
+        lenList = [models, titles, prices, deliverFees, sellerNames, sellTimes, aucNos, phoneId, phoneName ]
         for check in lenList:
             if len(check) % 20 != 0:
                 print('length not multiple of 20 . :: len:', len(check),'   list:: ', check )
         # 팔린물건 존재할경우 print.   
         if len(soldTitles) != 0:
-            print('soldList :: ',soldLists )    
-            print('soldTitle :: ',soldTitles)    
+            pass
+            # print('soldList :: ',soldLists )    
+            # print('soldTitle :: ',soldTitles)    
 #             print('titles[soldLists] :: ',[titles[x] for x in soldLists])   ## 지우지말것.  ## 원래 리스트와의 비교 
         
-        
-        
-        page+=1
-    ### while loop END
-        
-    for (pInfo,p) in zip(pInfoSet, range(len(pInfoSet))):
+        for (pInfo,p) in zip(pInfoSet, range(len(pInfoSet))):
             aucNos.append(pInfo.split(',')[0]) 
             phoneId.append(pInfo.split(',')[1]) 
             phoneName.append(pInfo.split(',')[2])
                 
-    df = DataFrame(data = {'models':models,
-                    'titles': titles,
-                    'prices': prices,
-                    'deliverFees': deliverFees,
-                    'sellerNames': sellerNames,
-                    'sellTimes': sellTimes,
-                    'aucNos': aucNos,
-                    'phoneId': phoneId,
-                    'phoneName': phoneName,
-                    'options': options })
-    
-    # 페이지 넓게 보여줌.
-    pd.set_option('expand_frame_repr', False)
-    print(df)
-    
-    print('#' * 30 ,"  df.describe()  ::")
-    print(df.describe())   
+        df = DataFrame(data = {'models':models,
+                        'titles': titles,
+                        'prices': prices,
+                        'deliverFees': deliverFees,
+                        'sellerNames': sellerNames,
+                        'sellTimes': sellTimes,
+                        'aucNos': aucNos,
+                        'phoneId': phoneId,
+                        'phoneName': phoneName,
+                        'options': options })
         
+        # 페이지 넓게 보여줌.
+        pd.set_option('expand_frame_repr', False)
+#         print(df)
         
-    dfToMaria(df)
+#         print(df.describe())   
+            
+        dfToMaria(df)
+        
+        page+=1
+    ### while loop END
+        
+    
 
 
 def dfToMaria(df):
@@ -190,7 +196,7 @@ def dfToMaria(df):
                               user = 'root', passwd = '11111', 
                               db = 'crawl', charset = 'utf8')
         engine = create_engine('mysql+mysqlconnector://root:11111@localhost:3306/crawl', echo=False)
-        df.to_sql(name='table0822_1352', con=engine, if_exists = 'append', index=False)
+        df.to_sql(name='table0822_1638', con=engine, if_exists = 'append', index=False)
         
         con.commit()
         print('-'*30, ' insert df in Maria :: Well done')
@@ -206,7 +212,7 @@ def dfToMaria(df):
 
 
 s1 = datetime.now()
-spider(1, 200) ## page start, end.
+spider(1, 356) ## page start, end.
 s2 = datetime.now()
 print('$'*50, 'time elapsed :: ', s2-s1)
 
