@@ -227,7 +227,7 @@ def spider(startPage, endPage):
         
         print(df.describe())   
             
-        dfToMaria(df)
+#         dfToMaria(df)
         
         page+=1
     ### while loop END
@@ -244,7 +244,7 @@ def dfToMaria(df):
                               user = 'root', passwd = '11111', 
                               db = 'crawl', charset = 'utf8')
         engine = create_engine('mysql+mysqlconnector://root:11111@localhost:3306/crawl', echo=False)
-        df.to_sql(name='table0823_1941', con=engine, if_exists = 'append', index=False)
+        df.to_sql(name='table0823_test001', con=engine, if_exists = 'append', index=False)
         
         con.commit()
         print('-'*30, ' insert df in Maria :: Well done')
