@@ -89,6 +89,7 @@ def spider(startPage, endPage):
         changes = []        # 확정: 확정기변, 유심: 유심기변
         conditions = []     # 미사용, 상(무흠집), 중(생활흠집), 하(번인/잔상/파손)
         pInfoSet = []       # temp. aucNos.phoneId.phoneName 모음.
+        agency = []         # 통신사 SK, KT, LG
         
         # phone table
         phoneId = []        # phone_id      # http://market.cetizen.com/market.php?q=info&pno=phoneId    ## 해당 폰 정보
@@ -173,7 +174,22 @@ def spider(startPage, endPage):
         # Model id.
         soupSel02 = soup.select('ul > li > div > a > span' )  ## 이거 .map function 해도 먹힐거같다?
         for allModel in soupSel02:
-            models.append(allModel.text)
+            tempModel = allModel.text
+            agentLetter = tempModel.split(' ')[0][-1]
+            if agentLetter == 'L' or agentLetter == 'K' or agentLetter == 'S':
+                tempList = tempModel.split(' ')
+                tempList[0] = tempList[0][0:-1]
+                tempModel = " ".join(str(s) for s in tempList) 
+                if agentLetter == 'L':
+                    agency.append('LG U+')
+                elif agentLetter == 'S':
+                    agency.append('SKT')
+                elif agentLetter == 'K':
+                    agency.append('KT')
+            else:
+                agency.append('All')
+                        
+            models.append(tempModel)
           
         soupSel03 = soup.select('li')
         for lis in soupSel03:
@@ -202,6 +218,7 @@ def spider(startPage, endPage):
         df = DataFrame(data = {
                         'aucNos': aucNos,#1
                         'models':models,#1
+                        'agency': agency,
                         'phoneName': phoneName,#1
                         'prices': prices,#1
                         'itemState': itemState,#
@@ -217,7 +234,7 @@ def spider(startPage, endPage):
                         'deliverFees': deliverFees,#1
                         'phoneId': phoneId })#1
         
-        df = df[['aucNos','models','phoneName','prices','itemState',
+        df = df[['aucNos','models','agency','phoneName','prices','itemState',
                  'sellTimes','sellerNames','guarantee','contrant','changes',
                  'conditions','titles','deliverFees','phoneId']]
         
@@ -225,9 +242,9 @@ def spider(startPage, endPage):
         pd.set_option('expand_frame_repr', False)
 #         print(df)
         
-        print(df.describe())   
+#         print(df.describe())   
             
-#         dfToMaria(df)
+        dfToMaria(df)
         
         page+=1
     ### while loop END
@@ -244,7 +261,7 @@ def dfToMaria(df):
                               user = 'root', passwd = '11111', 
                               db = 'crawl', charset = 'utf8')
         engine = create_engine('mysql+mysqlconnector://root:11111@localhost:3306/crawl', echo=False)
-        df.to_sql(name='table0823_test001', con=engine, if_exists = 'append', index=False)
+        df.to_sql(name='table0823_test002', con=engine, if_exists = 'append', index=False)
         
         con.commit()
         print('-'*30, ' insert df in Maria :: Well done')
@@ -260,7 +277,7 @@ def dfToMaria(df):
 
 
 s1 = datetime.now()
-spider(1,362) ## page start, end.
+spider(1,10) ## page start, end.
 s2 = datetime.now()
 print('$'*50, 'time elapsed :: ', s2-s1)
 
