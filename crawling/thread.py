@@ -1,12 +1,3 @@
-'''
-Created on 2017-08-23 14:04
-
-@ product name : PyCharm Community Edition
-
-@ author : yoda
-'''
-
-
 from bs4 import BeautifulSoup
 import threading
 import sys
@@ -170,6 +161,14 @@ class crawlThread(threading.Thread):
             print("##############################process" + str(self.counter) + " : " + str(no) + " TypeError##############################")
             no += 1
             crawlThread(no, self.endno, self.counter).start()
+        except threading.BrokenBarrierError:
+            print("##############################process" + str(self.counter) + " : " + str(no) + " threading.BrokenBarrierError##############################")
+            no += 1
+            crawlThread(no, self.endno, self.counter).start()
+        except threading.ThreadError:
+            print("##############################process" + str(self.counter) + " : " + str(no) + " threading.ThreadError##############################")
+            no += 1
+            crawlThread(no, self.endno, self.counter).start()
         log("saving that to mysql..")
         print("process" + str(self.counter) + " success")
         end_time = time.time()
@@ -180,9 +179,9 @@ class crawlThread(threading.Thread):
 
 
 def log(message):
-	ts = time.time()
-	sts = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-	print ("%s : %s"% (sts, message))
+    ts = time.time()
+    sts = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+    print ("%s : %s"% (sts, message))
 
 log("start crawl..")
 
