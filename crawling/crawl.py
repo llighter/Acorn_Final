@@ -42,24 +42,24 @@ changes = []
 conditions = []
 components = []
 srcs = []
-def mariaDB():
-    try:
-        con = pms.connect(host="localhost", port=3306, user="root", password="1234", db="test", charset="UTF8")
-        cursor = con.cursor()
-        for i in range(0, len(ids)):
-            cursor.execute("INSERT INTO CETIZEN2 VALUES('%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (
-            ids[i], dates[i], models[i], krnames[i], prices[i], contracts[i], agencies[i],
-            guarantees[i], changes[i], conditions[i], components[i], srcs[i]))
-        con.commit()
-        print("success")
-    except:
-        print("error", sys.exc_info())
-        con.rollback()
-    finally:
-        con.close()
+# def mariaDB():
+#     try:
+#         con = pms.connect(host="localhost", port=3306, user="root", password="1234", db="test", charset="UTF8")
+#         cursor = con.cursor()
+#         for i in range(0, len(ids)):
+#             cursor.execute("INSERT INTO CETIZEN2 VALUES('%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (
+#             ids[i], dates[i], models[i], krnames[i], prices[i], contracts[i], agencies[i],
+#             guarantees[i], changes[i], conditions[i], components[i], srcs[i]))
+#         con.commit()
+#         print("success")
+#     except:
+#         print("error", sys.exc_info())
+#         con.rollback()
+#     finally:
+#         con.close()
 
 def crawl(startno, endno, counter):
-    con = pms.connect(host="localhost", port=3306, user="root", password="1234", db="test", charset="UTF8")
+    con = pms.connect(host="35.190.226.198", port=3306, user="root", password="abc123", db="test", charset="UTF8")
     cursor = con.cursor()
     for no in range(startno, endno):
         try:
@@ -133,7 +133,7 @@ def crawl(startno, endno, counter):
                     sold = "N/A"
                 print(str(no)+" crawling completed")
                 try:
-                    cursor.execute("INSERT INTO CETIZEN VALUES('%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (
+                    cursor.execute("INSERT INTO cetizen VALUES('%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (
                             id, date, model, krname, price, contract, agency,
                             guarantee, change, condition, component, src, sold))
                     con.commit()
@@ -217,31 +217,25 @@ log("start crawl..")
 if __name__ == '__main__':
     start_time = time.time()
     result = Queue()
-    pr1 = Process(target=crawl, args=(10231739, 11000000, 1))
-    pr2 = Process(target=crawl, args=(11231910, 12000000, 2))
-    pr3 = Process(target=crawl, args=(12227555, 13000000, 3))
-    pr4 = Process(target=crawl, args=(13259824, 14000000, 4))
-    pr5 = Process(target=crawl, args=(14239631, 15000000, 5))
-    pr6 = Process(target=crawl, args=(15233491, 16000000, 6))
-    pr7 = Process(target=crawl, args=(16236642, 17000000, 7))
+    pr1 = Process(target=crawl, args=(12237688, 12650000, 1))
+    pr2 = Process(target=crawl, args=(12650001, 13000000, 2))
+    pr3 = Process(target=crawl, args=(13265556, 13650000, 3))
+    pr4 = Process(target=crawl, args=(13650001, 14000000, 4))
+
+# t1 = crawlThread(12237558, 12650000, 1)
+# t2 = crawlThread(12650001, 13000000, 2)
+# t3 = crawlThread(13265406, 13650000, 3)
+# t4 = crawlThread(13265001, 14000000, 4)
 
     pr1.start()
     pr2.start()
     pr3.start()
     pr4.start()
-    pr5.start()
-    pr6.start()
-    pr7.start()
-
-
 
     pr1.join()
     pr2.join()
     pr3.join()
     pr4.join()
-    pr5.join()
-    pr6.join()
-    pr7.join()
 
 
     result.put('STOP')

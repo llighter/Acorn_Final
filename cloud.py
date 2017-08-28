@@ -28,7 +28,7 @@ from requests.packages import urllib3
 
 
 def crawl(startno, endno, counter):
-    con = pms.connect(host="35.190.226.198", port=3306, user="CTO", password="abc123", db="test", charset="UTF8")
+    con = pms.connect(host="35.190.226.198", port=3306, user="root", password="abc123", db="test", charset="UTF8")
     cursor = con.cursor()
     for no in range(startno, endno):
         try:
@@ -100,7 +100,7 @@ def crawl(startno, endno, counter):
                     sold = soup.find(name="span", attrs={"class":"p13 clr100 b"}).text
                 except AttributeError as soldError:
                     sold = "N/A"
-                print(str(no)+" crawling completed")
+                print( prcRun(counter) + ' :: ' +str(no)+" crawling completed")
                 try:
                     cursor.execute("INSERT INTO cetizen VALUES('%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')" % (
                             id, date, model, krname, price, contract, agency,
@@ -109,12 +109,12 @@ def crawl(startno, endno, counter):
                 except:
                     print("error", sys.exc_info())
                     con.rollback()
-                print(str(no)+" inserting sql completed")
+                print( prcRun(counter) + ' :: ' +str(no)+" inserting sql completed")
             except AttributeError as e:
-                print(str(no) + "데이터 존재하지 않음")
+                print( prcRun(counter) + ' :: ' +str(no) + "데이터 존재하지 않음")
                 continue
             except IndexError as index:
-                print(str(no)+"IndexError")
+                print( prcRun(counter) + ' :: ' + str(no)+"IndexError")
                 pass
             except WindowsError as win:
                 pass
@@ -209,7 +209,8 @@ def crawl(startno, endno, counter):
     print("process" + str(counter) + " success")
 
 
-
+def prcRun(prc):
+    return ' // process ' + '_'*(prc-1) + str(prc) + '_'*(7-prc)
 
 
 def log(message):
