@@ -1,6 +1,6 @@
 
 
-#install.packages('RMySQL')
+##install.packages('RMySQL')
 library(RMySQL)
 library(MASS) # forward , both 
 library(car) #outlierTest, influencePlot
