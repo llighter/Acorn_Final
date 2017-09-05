@@ -1,0 +1,193 @@
+---
+title: "RADAR PLOT"
+author: "JB"
+date: "2017년 9월 5일"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setlocale(locale="C")
+```
+
+## 상대적 중요성으로 radar plot을 만들자!
+
+다중회귀모형에서 여러 개의 설명변수가 있는 경우, 각 변수들의 상대적인 중요성을 평가하기 위한 방법은 
+모든 가능한 서브모형에 변수 하나를 추가하였을 때 R^2 값이 평균적 증감으로 알수 있다.
+
+
+#### 필요 라이브러리 설치 및 데이터로드.
+```{r echo = FALSE}
+# install.packages('RMySQL')
+# install.packages('MASS')
+# install.packages('radarchart')
+library(radarchart)
+library(RMySQL)
+library(MASS) # forward , both 
+con <- dbConnect(dbDriver("MySQL"), host = "35.190.226.198", dbname = "jbworks", user = "root", password = "abc123")
+# dbListTables(con)  #DB abc에 있는 테이블목록 확인
+test.table <- dbGetQuery(con, '
+                         select * from iphoneR
+                        where sold != "N/A"
+                         ')
+
+
+#### 연속형 변수 타입 변환(as.numeric) 및 표준화
+df<- as.data.frame.matrix(test.table)
+Encoding(df$KRNAME) <- "UTF-8"
+Encoding(df$AGENCY) <- "UTF-8"
+Encoding(df$SOLD) <- "UTF-8"
+Encoding(df$CONTRACT) <- "UTF-8"
+Encoding(df$COMPONENT) <- "UTF-8"
+Encoding(df$GUARANTEE) <- "UTF-8"
+Encoding(df$CONDITIONS) <- "UTF-8"
+Encoding(df$CHANGES) <- "UTF-8"
+Encoding(df$AGENCY) <- "UTF-8"
+
+df$SOLDPRICE <- as.numeric(df$SOLDPRICE)
+df$MODEL<- as.factor(df$MODEL)
+df$GB<- as.factor(df$GB)
+df$KRNAME<- as.factor(df$KRNAME)
+df$AGENCY<- as.factor(df$AGENCY)
+df$SOLD<- as.factor(df$SOLD)
+df$POSTDATE<- as.Date(df$POSTDATE)
+df$reldate<-  as.Date(df$reldate)
+df$nextGenReldate<-  as.Date(df$nextGenReldate)
+df$CHANGES<- as.factor(df$CHANGES)
+df$GUARANTEE<- as.factor(df$GUARANTEE)
+df$CONDITIONS<- as.factor(df$CONDITIONS)
+df$COMPONENT<- as.factor(df$COMPONENT)
+df$CONTRACT<- as.factor(df$CONTRACT)
+df$genGap<- as.factor(df$genGap)
+
+
+# df
+# sapply(df,class)
+
+# 결측치 통계량. 
+# colSums(is.na(df))
+
+# df<- na.omit(df)
+
+form.full <- paste(names(df[! names(df) %in% c('SOLDPRICE','MODEL','ID', 'disdate','SOLD', 'nextGenReldate', 'AGENCY')]),collapse ="+")
+form.full <- paste("SOLDPRICE~", form.full) # same as full model PRICE~ all other variable with + sign between two variables.
+modelp.full<-lm(as.formula(form.full), data = df)  # linear model of full model to test summary and anova.
+# modelp.full == SOLDPRICE~ POSTDATE+MODEL+GB+CONTRACT+AGENCY+GUARANTEE+CHANGES+CONDITIONS+COMPONENT+reldate+nextGenReldate+relprice+genGap+DATEGAP+PRICERATE
+
+# 모든 변수를 넣은 모델의 다중회귀모형에서 신뢰도가 높으면서 가장 적합한 모델을 찾기위함이다.
+modelp.both <- stepAIC(modelp.full, direction="both")
+
+```
+
+### relweights(상대적 중요도)함수.<br />
+Robert I. Kabacoff의 R in action(2nd edition)책에 소개되어 있다.<br />
+**중요!** 숫자가 아닌 설명변수는 relweights() 함수로 처리가 안되므로 <br />
+**숫자(as.numeric)형이나 범주(as.factor)형으로 변환** 해줘야 한다.<br />
+```{r }
+relweights <- function(fit,...){
+  R <- cor(fit$model)
+  nvar <- ncol(R)
+  rxx <- R[2:nvar, 2:nvar]
+  rxy <- R[2:nvar, 1]
+  svd <- eigen(rxx)
+  evec <- svd$vectors
+  ev <- svd$values
+  delta <- diag(sqrt(ev))
+  lambda <- evec %*% delta %*% t(evec)
+  lambdasq <- lambda ^ 2
+  beta <- solve(lambda) %*% rxy
+  rsquare <- colSums(beta ^ 2)
+  rawwgt <- lambdasq %*% beta ^ 2
+  import <- (rawwgt / rsquare) * 100
+  import <- as.data.frame(import)
+  row.names(import) <- names(fit$model[2:nvar])
+  names(import) <- "Weights"
+  import <- import[order(import),1, drop=FALSE]
+  dotchart(import$Weights, labels=row.names(import),
+           xlab="% of R-Square", pch=19,
+           main="Relative Importance of Predictor Variables",
+           sub=paste("Total R-Square=", round(rsquare, digits=3)),
+           ...)
+  return(import)
+}    
+```
+
+```{r echo = FALSE}
+df$SOLDPRICE <- as.numeric(df$SOLDPRICE)
+df$KRNAME<- as.numeric(as.factor(df$KRNAME))
+df$GB<- as.numeric(df$GB)
+df$CONDITIONS<- as.numeric(as.factor(df$CONDITIONS))
+df$CHANGES<- as.numeric(as.factor(df$CHANGES))
+df$POSTDATE<-  as.numeric(as.Date(df$POSTDATE))
+df$AGENCY<- as.numeric(as.factor(df$AGENCY))
+df$GUARANTEE<- as.numeric(as.factor(df$GUARANTEE))
+df$COMPONENT<- as.numeric(as.factor(df$COMPONENT))
+df$reldate<-  as.numeric(as.Date(df$reldate))
+df$genGap<- as.numeric(as.factor(df$genGap))
+
+
+########## rw.both
+#modelp.short
+rw.both <- relweights(lm(formula = SOLDPRICE ~ POSTDATE + GB + KRNAME + AGENCY + GUARANTEE + CHANGES + CONDITIONS + COMPONENT + reldate + genGap, data = df),col="blue")   
+########## rw.short
+labs <- c("POSTDATE", "CHANGES","COMPONENT","AGENCY","GUARANTEE","GB","CONDITIONS","RELDATE","KRNAME","GENGAP")
+
+```
+데이터 모델 lm(formula = SOLDPRICE ~ POSTDATE + GB + KRNAME + AGENCY + GUARANTEE + CHANGES + CONDITIONS + COMPONENT + reldate + genGap)<br />
+위 모델의 adjusted R^2 53%로<br />
+모델의 상대적 중요성은 아래와 같다.<br />
+```{r echo = FALSE}
+scores <- list(
+  "rw.both" = rw.both$Weights
+)
+chartJSRadar(scores = scores,   labs = labs, scaleStepWidth = 10, 
+             maxScale = ceiling(max(rw.both$Weights)), main = 'Relatve importance for SOLDPRICE with full model')
+rw.both
+
+```
+
+사용자의 입장에서 가장 명백하게 선택할수 옵션들 중<br />
+판매가격에 대표적으로 중요한 설명변수는 **신제품출시 준비기간, 모델명, 출시일과 판매등록 시간차이**로 나타난다.<br />
+이로써 판매자는 **신제품 준비기간이 짧을수록, 최신 모델일수록, 출시일로부터 판매가 빠를수록  가격을 높게 받을수 있음** 을 확인할수 있다..  <br />
+
+
+
+
+
+
+
+
+```{r echo = FALSE}
+
+df$KRNAME<- as.numeric(as.factor(df$KRNAME))
+df$GB<- as.numeric(df$GB)
+df$CONDITIONS<- as.numeric(as.factor(df$CONDITIONS))
+df$CHANGES<- as.numeric(as.factor(df$CHANGES))
+#modelp.short
+modelp.short <- lm(formula = SOLDPRICE ~ KRNAME + GB + CONDITIONS + CHANGES, data = df)
+rw.short <- relweights(modelp.short,col="blue")    
+
+
+########## rw.short
+labs <- c("CHANGES", "GB", "CONDITIONS","KRNAME")
+
+```
+데이터 모델 lm(formula = SOLDPRICE ~ KRNAME + GB + CONDITIONS + CHANGES)<br />
+위 모델의 adjusted R^2 은 49.1%로<br />
+모델의 상대적 중요성은 아래와 같다.<br />
+```{r echo = FALSE}
+scores <- list(
+  "rw.short" = rw.short$Weights
+)
+chartJSRadar(scores = scores,   labs = labs, scaleStepWidth = 10, 
+             maxScale = ceiling(max(rw.short$Weights)), main = 'Relatve importance for SOLDPRICE with short model')
+rw.short
+```
+사용자의 입장에서 가장 명백하게 선택할수 옵션들 중<br />
+**판매가격에 가장 중요한 설명변수는 모델명, 제품의 상태, 용량, 기변구분 순서대로** 나타난다.<br />
+최근 모델을 선택하는것은 더 좋은 제품상태, 용량, 기변구분을 선택하는 것과 비슷한 중요도로 나타난다.  <br />
+
+```{r echo = FALSE}
+dbDisconnect(con)
+```
+

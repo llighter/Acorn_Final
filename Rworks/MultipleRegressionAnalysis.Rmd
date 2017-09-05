@@ -1,0 +1,341 @@
+---
+title: "Multiple Regression analysis"
+author: "JB"
+date: "2017년 9월 5일"
+output: html_document
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, include=FALSE }
+library(radarchart)
+library(RMySQL)
+library(MASS) # forward , both 
+library(car) #outlierTest, influencePlot
+library(ggplot2) # qplot
+library(lmtest)
+library(scales)
+con <- dbConnect(dbDriver("MySQL"), host = "35.190.226.198", dbname = "jbworks", user = "root", password = "abc123")
+#dbListTables(con)  #DB abc에 있는 테이블목록 확인
+test.table <- dbGetQuery(con, '
+                         select * from iphoneR
+                        where sold != "N/A"
+                         ')
+
+df<- as.data.frame.matrix(test.table)
+
+Encoding(df$KRNAME) <- "UTF-8"
+Encoding(df$AGENCY) <- "UTF-8"
+Encoding(df$SOLD) <- "UTF-8"
+Encoding(df$CONTRACT) <- "UTF-8"
+Encoding(df$COMPONENT) <- "UTF-8"
+Encoding(df$GUARANTEE) <- "UTF-8"
+Encoding(df$CONDITIONS) <- "UTF-8"
+Encoding(df$CHANGES) <- "UTF-8"
+Encoding(df$AGENCY) <- "UTF-8"
+
+df$SOLDPRICE <- as.numeric(df$SOLDPRICE)
+df$MODEL<- as.factor(df$MODEL)
+df$GB<- as.factor(df$GB)
+df$KRNAME<- as.factor(df$KRNAME)
+df$AGENCY<- as.factor(df$AGENCY)
+df$SOLD<- as.factor(df$SOLD)
+df$POSTDATE<- as.Date(df$POSTDATE)
+df$reldate<-  as.Date(df$reldate)
+df$nextGenReldate<-  as.Date(df$nextGenReldate)
+df$CHANGES<- as.factor(df$CHANGES)
+df$GUARANTEE<- as.factor(df$GUARANTEE)
+df$CONDITIONS<- as.factor(df$CONDITIONS)
+df$COMPONENT<- as.factor(df$COMPONENT)
+df$CONTRACT<- as.factor(df$CONTRACT)
+
+
+
+str(df)
+# sapply(df,class)
+
+# 결측치 통계량. 
+# colSums(is.na(df))
+
+#df<- na.omit(df)
+
+
+```
+### **사용 데이터**
+iphone 전체 기종에서 팔려진 데이터를 관찰.<br/>
+(총 14845개 관측치, 19개 변수 - 데이터개요 참고.)<br/>
+``` {r echo = FALSE, include=FALSE}
+
+form.full <- paste(names(df[! names(df) %in% c('SOLDPRICE','MODEL','ID', 'disdate','SOLD', 'nextGenReldate', 'AGENCY')]),collapse ="+")
+form.full <- paste("SOLDPRICE~", form.full) # same as full model PRICE~ all other variable with + sign between two variables.
+
+modelp.short <- lm(SOLDPRICE~ KRNAME+ GB+ CONDITIONS+ CHANGES , data =df )
+
+```
+
+``` {r echo = FALSE, include=FALSE}
+modelp.full<-lm(as.formula(form.full), data = df)  # linear model of full model to test summary and anova.
+# modelp.full == SOLDPRICE~ POSTDATE+MODEL+GB+CONTRACT+AGENCY+GUARANTEE+CHANGES+CONDITIONS+COMPONENT+reldate+nextGenReldate+relprice+genGap+DATEGAP+PRICERATE
+
+# 모든 변수를 넣은 모델의 다중회귀모형에서 신뢰도가 높으면서 가장 적합한 모델을 찾기위함이다.
+modelp.both <- stepAIC(modelp.full, direction="both")
+# 결과:: modelp.both == lm( SOLDPRICE ~ POSTDATE + GB + KRNAME + AGENCY + GUARANTEE + CHANGES + CONDITIONS + COMPONENT + reldate + genGap + PRICERATE )
+
+anova(modelp.both, modelp.full)
+summary(modelp.both)
+```
+#### 전체모델과 다중 회귀모델 비교 F-statistic <br/>
+F-statistic 결과의 p-value가 0.317(>0.05)로 종속변수SoldPrice 에 대한 설명은 <br/>
+stepAIC로 추정된 모델을 사용해도 유의하다고 해석할수 있다.<br/>
+
+
+#### 다중회귀분석 결과
+
+p-value: < 2.2e-16로 회귀모델은 유의하다고 판단할 수 있다.<br/>
+또한 Multiple R-squared가 0.992의 의미로 독립변수들이 종속변수들을 99.2%만큼 설명이 가능하다.<br/>
+
+
+``` {r echo = FALSE, include=FALSE}
+
+# adjR <- summary(modelp.both)$adj.r.squared
+# adjR  ##0.9842363
+
+# par(mfrow = c(2,2))
+# plot(modelp.both)
+
+
+
+
+### 함수 모음
+##################### 전체 팔린물품 가격그래프.
+soldplot<- function(dfplot, inKrname, inGB, inConditions, inChanges ){
+  minPr <- min(dfplot$SOLDPRICE)
+  maxPr <- ifelse( max(dfplot$SOLDPRICE) > 1.3*10^6, 1.3*10^6, max(dfplot$SOLDPRICE))
+  
+  inKrname <- ifelse(inKrname == '', 'all', inKrname)
+  inGB <- ifelse(inGB == '', 'all', inGB)
+  inConditions <- ifelse(inConditions == '', 'all', inConditions)
+  inChanges <- ifelse(inChanges == '', 'all', inChanges)
+  inList = c("intercept" ,inKrname,inGB,inConditions,inChanges)
+  ggplot(data=dfplot, aes(x=POSTDATE, y=SOLDPRICE, group=KRNAME )) + 
+    geom_line(aes(color = KRNAME)) + 
+    geom_smooth() +
+    xlab('POSTDATE(단위: 월)') +
+    ylab('SOLDPRICE(단위: 원)') +
+    scale_y_continuous(limits=c( minPr , maxPr ), 
+                       breaks= seq(1 , maxPr, by=100000)) +
+    scale_x_date(breaks = date_breaks("1 month"),labels = date_format("%Y-%m")) +
+    theme_bw()+ theme(plot.title = element_text(size=11, face = "bold")) +
+    guides(col = guide_legend(reverse = TRUE))+ 
+    # xlim(min(as.Date(dfplot$POSTDATE, '%Y-%m')),max(as.Date(dfplot$POSTDATE, '%Y-%m')) ) +
+    ggtitle(paste("iPhone //모델명:",inKrname, ' //용량:',inGB,  ' //제품상태:',inConditions,' //기변구분:', inChanges ) )
+}
+
+
+
+##################### 예상 가격추출.
+sumColList <- c( "intercept", "아이폰 4", "아이폰 4S"   ,"아이폰 5"  ,"아이폰 5C"  ,"아이폰 5S"   ,"아이폰 6"  ,"아이폰 6+" 
+                 ,"아이폰 6S" ,"아이폰 6S+"   ,"아이폰 7"  ,"아이폰 7+"  ,"아이폰 SE", "16GB" ,"256GB", "32GB",  
+                 "64GB", "8GB", "미사용", "상", "중", "하", "유심기변", "확정기변")
+# summary(modelp.short)
+predictPrice<- function( plmModel, monthLater , confLV){
+  coef<-coef(summary(plmModel))[,1]
+  resultPrice = 0
+  inList = c("intercept" ,inKrname,inGB,inConditions,inChanges)
+  for (inpt in inList){
+    # print(paste('#######', coef[sumColList == inpt]))
+    if(length(coef[sumColList == inpt]) < 1 ){
+    }
+    else{
+      resultPrice = resultPrice + coef[sumColList == inpt]
+    }
+  }
+  print(paste('예상 평균가: ', round(resultPrice,-3),'원'))  ## 한달후 폰 가격.  + coef[sumColList == 'POSTDATE']*30*monthLater
+  
+  conf<-confint(plmModel, level = confLV)
+  bPrice=c(0,0)
+  for (inpt in inList){
+    # print(paste('#######', conf[sumColList == inpt]))
+    if(length(conf[sumColList == inpt]) < 1 ){
+    }
+    else{
+      bPrice = bPrice + conf[sumColList == inpt]
+    }
+  }
+  print(paste('하위25% 가격:', round(bPrice[1],-3), '원 // 상위25% 가격: ', round(bPrice[2],-3),'원'))  ## 한달후 폰 가격의 boundary + conf[sumColList == 'POSTDATE']*30*monthLater
+}
+
+``` 
+
+``` {r echo = FALSE}
+coef(summary(modelp.short))[,1]
+confint(modelp.short, level = 0.99)
+```
+#### 가격 예측 공식
+69.93%유의한 모델에서 summary에 나온 coefficient로 예상값과 가격 범위를 추출해 낼수 있다. <br/>
+Soldprice = 152731(intercept) + (사용자 물품 조건의 합)으로 이루어지고,<br/>
+Confidence interval로  level = 0.99(99%의 확신)으로 예상 가격의 범위또한 계산 할 수 있다.<br/>
+
+``` {r echo = FALSE, include=FALSE}
+
+##################### getAllResult
+getAllResult <- function(inKrname,inGB,inConditions,inChanges){
+    print(paste("모델명:",inKrname, ' //용량:',inGB,  ' //제품상태:',inConditions,' //기변구분:', inChanges))
+    # print(summary(dfplot))
+    if(inKrname == '' & inGB == '' & inConditions == '' & inChanges == '' ){
+      ## show all. 모든 폰모델, GB, 제품상태, 확정/유심기변.
+      dfplot<- df
+      soldplot(dfplot, '','','','')
+      
+    }else if( sum(table(dfplot$ID)) < 30){ 
+      print('not enough data!!')
+    }else{
+      # print('////////////////')
+      dfplot <- subset(df, df$KRNAME == inKrname & df$GB ==  inGB & df$CONDITIONS == inConditions & df$CHANGES == inChanges)
+      soldplot(dfplot, inKrname,inGB,inConditions,inChanges)
+      predictPrice(modelp.short, 1, 0.5)
+    }
+    
+}
+
+```
+
+### 예시- iphone 전체데이터
+``` {r echo = FALSE}
+soldplot(df, '','','','')
+``` 
+
+
+
+### 예시1
+```{r echo = FALSE, warning = FALSE}
+################
+inKrname<-'아이폰 7+'
+inGB<-'128GB'
+inConditions<-'미사용'
+inChanges <-'확정기변'
+dfplot <- subset(df, df$KRNAME == inKrname & df$GB ==  inGB & df$CONDITIONS == inConditions & df$CHANGES == inChanges)
+soldplot(dfplot, inKrname, inGB, inConditions,inChanges )
+getAllResult(inKrname, inGB, inConditions,inChanges )
+```
+
+
+### 예시2
+
+```{r echo = FALSE, warning = FALSE}
+################
+inKrname<-'아이폰 7'
+inGB<-'128GB'
+inConditions<-'상'
+inChanges <-'확정기변'
+dfplot <- subset(df, df$KRNAME == inKrname & df$GB ==  inGB & df$CONDITIONS == inConditions & df$CHANGES == inChanges)
+soldplot(dfplot, inKrname, inGB, inConditions,inChanges )
+getAllResult(inKrname, inGB, inConditions,inChanges )
+
+```
+### 예시3
+
+```{r echo = FALSE, warning = FALSE}
+#############
+inKrname<-'아이폰 6'
+inGB<-'16GB'
+inConditions<-'중'
+inChanges <-'확정기변'
+dfplot <- subset(df, df$KRNAME == inKrname & df$GB ==  inGB & df$CONDITIONS == inConditions & df$CHANGES == inChanges)
+soldplot(dfplot, inKrname, inGB, inConditions,inChanges )
+getAllResult(inKrname, inGB, inConditions,inChanges )
+
+```
+### 예시4
+
+```{r echo = FALSE, warning = FALSE}
+################
+inKrname<-'아이폰 SE'
+inGB<-'64GB'
+inConditions<-'상'
+inChanges <-'확정기변'
+dfplot <- subset(df, df$KRNAME == inKrname & df$GB ==  inGB & df$CONDITIONS == inConditions & df$CHANGES == inChanges)
+soldplot(dfplot, inKrname, inGB, inConditions,inChanges )
+getAllResult(inKrname, inGB, inConditions,inChanges )
+
+```
+### 예시5
+
+```{r echo = FALSE, warning = FALSE}
+################
+inKrname<-'아이폰 6S+'
+inGB<-'64GB'
+inConditions<-'상'
+inChanges <-'확정기변'
+dfplot <- subset(df, df$KRNAME == inKrname & df$GB ==  inGB & df$CONDITIONS == inConditions & df$CHANGES == inChanges)
+soldplot(dfplot, inKrname, inGB, inConditions,inChanges )
+getAllResult(inKrname, inGB, inConditions,inChanges )
+
+
+```
+
+
+
+
+## **오류분석과정**
+```{r echo = FALSE}
+# 
+summary(modelp.both)$adj.r.squared
+anova(modelp.short, modelp.full)
+# 다중공선성 문제는 없다는 것을 확인
+vif(modelp.both)[,3]>2
+
+```
+### model.both(stepAIC로 추려내진 모델)<br/>
+summary에서 Multiple R-squared가 0.9919로 독립변수들이 종속변수들을 99.19%만큼 설명할 수 있다.<br/>
+vif결과에서 GVIF^(1/(2*Df))의 값이 2가 넘어가는 <br/>
+reldate(출시된 날짜로부터 판매게시글 올리는 날짜수), genGap(최신 모델과 이전 모델 사이의 날짜수)를 제외하고 <br/>
+다중공선성(변수간의 상관관계정도)가 안정적으로 독립됨을 얘기한다.<br/>
+
+```{r echo = FALSE}
+# 사용자 편의용 : 임의 모델.
+dfplot<- df
+modelp.short <- lm(SOLDPRICE~ KRNAME+ GB+ CONDITIONS+ CHANGES , data =dfplot )
+# p-value < 2.2e-16 이므로 두 회귀모델은 다르다고 결론 내릴수 있다.
+summary(modelp.short)$adj.r.squared
+anova(modelp.short, modelp.full)
+vif(modelp.short)[,3]>2 # GVIF^(1/(2*Df)) < 2 이므로 다중공선성(Multicolinearity)의 문제는 없다.
+
+```
+### 사용자 편의를 위한 임의모델분석<br/>
+summary에서 Multiple R-squared가 0.6988543 독립변수들이 종속변수들을 약 69.88%만큼 설명할 수 있다.<br/>
+하지만 전체 모델과 사용자임의 모델간에 F-test 결과, 사용자 임의모델은 유의하지않다고 해석할수 있다.<br/>
+vif결과에서 GVIF^(1/(2*Df))의 값이 2가 넘어가는 변수가 존재하지않으므로, <br/>
+다중공선성(변수간의 상관관계정도)가 안정적으로 독립됨을 얘기한다.<br/>
+
+
+```{r echo = FALSE}
+bptest(modelp.short) 
+dwtest(modelp.short) 
+shapiro.test(sample(modelp.short$residuals, 5000))  
+par(mfrow=c(1,1))
+par(mfrow=c(2,2))
+plot(modelp.short)
+```
+### 오류 분석결과
+bptest의 p-value < 2.2e-16 이므로 분산이 일정하지않음은 모델의 데이터에서 이상치가 많다고 해석할수 있다.<br/>
+dwtest의 DW = 1.7287, p-value < 2.2e-16 이므로 자기상관은 없다고 해석할수 있다.<br/>
+shapiro.test의 p-value < 2.2e-16로 잔차가 정규성을 만족하지 않는 것으로 해석할수 있다.<br/>
+plot(modelp.short)을 통해서 직관적으로 이상치 데이터들을 확인할수 있다.<br/>
+
+```{r echo = FALSE}
+#outlierTest. 데이터중 모델에서 이상치를 찾는다. 
+outs<- outlierTest(modelp.short) # check outliers
+outs
+```
+회귀분석 모델에 constant variance(등분산), autocorrelation(자기상관), influential point(영향점)에<br/>
+이상치를 발견할수 있는 outlierTest결과를 찾을수 있으며, 데이터프레임에서 이를 제거할때 더 좋은 회귀분석이 가능하다.<br/>
+사용자 임의모델에서 이상치 id는 :5081, 4247, 13548, 11305, 1862, 1635, 4663, 4664, 5776, 12174로 판별된다.<br/>
+
+
+
+```{r echo = FALSE}
+dbDisconnect(con)
+```
