@@ -2,9 +2,8 @@ var ctx = document.getElementById("myChart").getContext('2d');
 var myChart = new Chart(ctx, {
     type: 'line',
     data: {
-        labels: ["12/3", "12/6", "12/9", "12/12", "13/3", "13/6","13/9","13/12","14/3","14/6","14/9","14/12"],
+        labels: [["12/3",'아래'], "12/6", "12/9", "12/12", ["13/3",'아래'], "13/6","13/9","13/12",["14/3",'아래'],"14/6","14/9","14/12"],
         datasets: [{
-            type: 'line',
             label : '아이폰4s',
             lineTension : ['0.1'], // 라인 곡선
             data: [420000, 390000, 380000, 370000, 330000, 315000, 310000, 250000, 240000, 210000, 200000, 210000],
@@ -41,6 +40,12 @@ var myChart = new Chart(ctx, {
                 scaleLabel: {
                     display: true,
                     labelString: '기간'
+                },
+                ticks: {
+                    callback: function(dataLabel, index) {
+                        // Hide the label of every 2nd dataset. return null to hide the grid line too
+                        return index % 2 === 0 ? dataLabel : '';
+                    }
                 }
             }],
             yAxes: [{
